@@ -19,6 +19,7 @@ contract Pool is IPool {
     int24 public override tick;
     uint128 public override liquidity;
     mapping(address => Position) public positions; // 存放所有的 LP 对应的 Position
+    mapping(address => mapping(address => address[])) public pools; // 所有的 pool, 例如 pools[]
 
     constructor() {
         // constructor 中初始化 immutable 的常量
