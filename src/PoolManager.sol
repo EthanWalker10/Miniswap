@@ -9,7 +9,7 @@ import "./interfaces/IPool.sol";
 contract PoolManager is Factory, IPoolManager {
     Pair[] public pairs;
 
-    // ? 需要么?
+    // 返回 pair 数组全部数据
     function getPairs() external view override returns (Pair[] memory) {
         return pairs;
     }
@@ -22,6 +22,7 @@ contract PoolManager is Factory, IPoolManager {
     {
         uint32 length = 0;
         // 计算所有池子的数量
+        // pairs 同时也可以作为 pools 的 key, 否则作为 mapping 的 pools 无法迭代返回
         for (uint32 i = 0; i < pairs.length; i++) {
             length += uint32(pools[pairs[i].token0][pairs[i].token1].length);
         }
@@ -54,6 +55,8 @@ contract PoolManager is Factory, IPoolManager {
         CreateAndInitializeParams calldata params
     ) external payable override returns (address poolAddress) {
         require(
+            // params 中需要传入交易价格(按照 token0/token1 的方式计算)
+            // 因此防止用户搞错 token0 和 token1 的顺序进而搞错价格
             params.token0 < params.token1,
             "token0 must be less than token1"
         );
