@@ -24,8 +24,8 @@ contract PositionManager is IPositionManager, ERC721 {
         poolManager = IPoolManager(_poolManger);
     }
 
-    // 用一个 mapping 来存放所有 Position 的信息
-    mapping(uint256 => PositionInfo) public positions;
+    // 用一个 mapping 来存放所有 Position 的信息 
+    mapping(uint256 => PositionInfo) public positions; /** @dev key 则是 uint256 类型的 PositionId */
 
     // 获取全部的 Position 信息
     function getAllPositions()

@@ -90,12 +90,14 @@ contract Pool is IPool {
         int128 liquidityDelta;
     }
 
+    /** @title 修改用户的 Position 信息
+     * @dev 通过 Storage 引用实现 gas saving
+     */
     function _modifyPosition(
         ModifyPositionParams memory params
     ) private returns (int256 amount0, int256 amount1) {
         // 通过新增的流动性计算 amount0 和 amount1
         // 参考 UniswapV3 的代码
-
         amount0 = SqrtPriceMath.getAmount0Delta(
             sqrtPriceX96,
             TickMath.getSqrtPriceAtTick(tickUpper),
@@ -107,6 +109,9 @@ contract Pool is IPool {
             sqrtPriceX96,
             params.liquidityDelta
         );
+        // gas saving
+        // 直接通过 position 引用访问和修改数据，不需要每次都进行 mapping 查找，从而减少了多次存储读取带来的 Gas 开销。
+        // 使用 storage 引用时，在本地内存中进行数据的操作。只有在函数返回时才将数据修改写回到存储。这种方式可以在一个地方集中进行数据修改，避免了对存储的多次修改。
         Position storage position = positions[params.owner];
 
         // 提取手续费，计算从上一次提取到当前的手续费
@@ -146,7 +151,13 @@ contract Pool is IPool {
     /// @dev Get the pool's balance of token0
     /// @dev This function is gas optimized to avoid a redundant extcodesize check in addition to the returndatasize
     /// check
+    /**
+     * @dev 在传统的调用中，如果不做优化，通常需要先检查目标地址是否为合约（extcodesize）并验证返回数据的大小（returndatasize）
+     * @dev 但 staticcall 已经隐式执行了这两个检查，避免了冗余的 Gas 消耗。
+     * @dev 在 V3 中定义了 IERC20Minimal 来最小化一个 ERC20 的体量(去掉了不需要的方法等部分)
+     */
     function balance0() private view returns (uint256) {
+        // staticcall: 只读调用，避免更昂贵的写入操作
         (bool success, bytes memory data) = token0.staticcall(
             abi.encodeWithSelector(IERC20.balanceOf.selector, address(this))
         );
@@ -228,6 +239,9 @@ contract Pool is IPool {
         emit Collect(msg.sender, recipient, amount0, amount1);
     }
 
+    /**
+     *
+     */
     function burn(
         uint128 amount
     ) external override returns (uint256 amount0, uint256 amount1) {
@@ -239,8 +253,8 @@ contract Pool is IPool {
         // 修改 positions 中的信息
         (int256 amount0Int, int256 amount1Int) = _modifyPosition(
             ModifyPositionParams({
-                owner: msg.sender,
-                liquidityDelta: -int128(amount)
+                owner: msg.sender, /** @dev 这里 msg.sender 应该是 PositionManager 合约的地址? 这样如何区分呢? */
+                liquidityDelta: -int128(amount) // 负值
             })
         );
         // 获取燃烧后的 amount0 和 amount1

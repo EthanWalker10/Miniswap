@@ -74,6 +74,7 @@ contract PoolManager is Factory, IPoolManager {
         uint256 index = pools[pool.token0()][pool.token1()].length;
 
         // 新创建的池子，没有初始化价格，需要初始化价格
+        // 但是这个价格是如何指定的? 正常来说应该需要根据 token0 和 token1 的数量算出来???
         if (pool.sqrtPriceX96() == 0) {
             pool.initialize(params.sqrtPriceX96);
 
