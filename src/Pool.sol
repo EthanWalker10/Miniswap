@@ -41,8 +41,10 @@ contract Pool is IPool {
     uint128 public override liquidity;
 
     /// @inheritdoc IPool
+    // 全局费用增长, 每次 token0 -> token1 交易（swap）中产生的交易费不断累加形成的
     uint256 public override feeGrowthGlobal0X128;
     /// @inheritdoc IPool
+    // token1 -> token0
     uint256 public override feeGrowthGlobal1X128;
 
     struct Position {
@@ -253,7 +255,8 @@ contract Pool is IPool {
         // 修改 positions 中的信息
         (int256 amount0Int, int256 amount1Int) = _modifyPosition(
             ModifyPositionParams({
-                owner: msg.sender, /** @dev 这里 msg.sender 应该是 PositionManager 合约的地址? 这样如何区分呢? */
+                owner: msg
+                    .sender /** @dev 这里 msg.sender 应该是 PositionManager 合约的地址? 这样如何区分呢? */,
                 liquidityDelta: -int128(amount) // 负值
             })
         );
@@ -276,26 +279,27 @@ contract Pool is IPool {
 
     // 交易中需要临时存储的变量
     struct SwapState {
-        // the amount remaining to be swapped in/out of the input/output asset
+        // 剩余待交换的金额, 在交换过程中动态更新，用来追踪尚未完成的交换数量。两种方向的交易都可以追踪
         int256 amountSpecifiedRemaining;
+        // 表示已经完成的交换量（已转入或已转出的数量）, 在从 token0 到 token1 的交易中，amountCalculated 就是已从池中交换出的 token1 数量，或者已从用户转出的 token0 数量。
         // the amount already swapped out/in of the output/input asset
         int256 amountCalculated;
         // current sqrt(price)
         uint160 sqrtPriceX96;
         // the global fee growth of the input token
         uint256 feeGrowthGlobalX128;
-        // 该交易中用户转入的 token0 的数量
+        // 该交易中用户转入的 token0 的数量  (不一定是 token0 吧?)
         uint256 amountIn;
         // 该交易中用户转出的 token1 的数量
         uint256 amountOut;
-        // 该交易中的手续费，如果 zeroForOne 是 ture，则是用户转入 token0，单位是 token0 的数量，反正是 token1 的数量
+        // 该交易中的手续费，如果 zeroForOne 是 ture，则是用户转入 token0，单位是 token0 的数量，反之是 token1 的数量
         uint256 feeAmount;
     }
 
     function swap(
         address recipient,
         bool zeroForOne,
-        int256 amountSpecified,
+        int256 amountSpecified, // 指定用户要支付的数量, 大于 0 代表 token0 的数量, 小于 0 代表 token1 的数量
         uint160 sqrtPriceLimitX96,
         bytes calldata data
     ) external override returns (int256 amount0, int256 amount1) {
@@ -303,6 +307,12 @@ contract Pool is IPool {
 
         // zeroForOne: 如果从 token0 交换 token1 则为 true，从 token1 交换 token0 则为 false
         // 判断当前价格是否满足交易的条件
+        /**
+         * @dev 价格始终指的是 token1 相对于 token0 的数量比例, p = x/y; sqrtPriceX96 = 根号p * 2^96
+         * @dev 核心就是 token0 -> token1 时, 用户希望 p 小; token1 -> token0 时, 用户希望 p 大; 所以这样校验区间
+         * @param sqrtPriceX96：当前池子的平方根价格。
+         * @param sqrtPriceLimitX96：用户提供的价格限制。
+         */
         require(
             zeroForOne
                 ? sqrtPriceLimitX96 < sqrtPriceX96 &&
@@ -315,6 +325,7 @@ contract Pool is IPool {
         // amountSpecified 大于 0 代表用户指定了 token0 的数量，小于 0 代表用户指定了 token1 的数量
         bool exactInput = amountSpecified > 0;
 
+        // 初始化 swap 状态
         SwapState memory state = SwapState({
             amountSpecifiedRemaining: amountSpecified,
             amountCalculated: 0,
@@ -343,6 +354,10 @@ contract Pool is IPool {
             state.feeAmount
         ) = SwapMath.computeSwapStep(
             sqrtPriceX96,
+            /**
+             * token0 -> token1: 看pool价格限制是否小于用户价格限制, 如果是的话, 就选用户价格限制, 否则选pool价格限制
+             * token1 -> token0: 看pool价格限制是否大于用户价格限制, 如果是的话, 就选用户价格限制, 否则选pool价格限制
+             */
             (
                 zeroForOne
                     ? sqrtPriceX96PoolLimit < sqrtPriceLimitX96
