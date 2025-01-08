@@ -327,8 +327,8 @@ contract Pool is IPool {
 
         // 初始化 swap 状态
         SwapState memory state = SwapState({
-            amountSpecifiedRemaining: amountSpecified,
-            amountCalculated: 0,
+            amountSpecifiedRemaining: amountSpecified, // 初始状态下: 尚未完成的交易量就是用户开始指定的交易量(token0)
+            amountCalculated: 0, // 初始状态下: 已完成的交易 token1 数是0
             sqrtPriceX96: sqrtPriceX96,
             feeGrowthGlobalX128: zeroForOne
                 ? feeGrowthGlobal0X128
@@ -347,34 +347,38 @@ contract Pool is IPool {
             : sqrtPriceX96Upper;
 
         // 计算交易的具体数值
+        /**
+         * @dev 传入当前价格、限制价格、流动性数量、交易量和手续费
+         * @dev 返回交易后新的价格, 可以交易的数量，以及手续费
+         */
         (
             state.sqrtPriceX96,
             state.amountIn,
             state.amountOut,
             state.feeAmount
-        ) = SwapMath.computeSwapStep(
-            sqrtPriceX96,
-            /**
-             * token0 -> token1: 看pool价格限制是否小于用户价格限制, 如果是的话, 就选用户价格限制, 否则选pool价格限制
-             * token1 -> token0: 看pool价格限制是否大于用户价格限制, 如果是的话, 就选用户价格限制, 否则选pool价格限制
-             */
-            (
-                zeroForOne
-                    ? sqrtPriceX96PoolLimit < sqrtPriceLimitX96
-                    : sqrtPriceX96PoolLimit > sqrtPriceLimitX96
-            )
-                ? sqrtPriceLimitX96
-                : sqrtPriceX96PoolLimit,
-            liquidity,
-            amountSpecified,
-            fee
-        );
+        ) = SwapMath.computeSwapStep( // 这里的就算逻辑就是书中的 delta(y)或者delta(x) 与 L 还有 delta(p) 的关系
+                sqrtPriceX96,
+                /**
+                 * token0 -> token1: 看pool价格限制是否小于用户价格限制, 如果是的话, 就选用户价格限制, 否则选pool价格限制
+                 * token1 -> token0: 看pool价格限制是否大于用户价格限制, 如果是的话, 就选用户价格限制, 否则选pool价格限制
+                 */
+                (
+                    zeroForOne
+                        ? sqrtPriceX96PoolLimit < sqrtPriceLimitX96
+                        : sqrtPriceX96PoolLimit > sqrtPriceLimitX96
+                )
+                    ? sqrtPriceLimitX96
+                    : sqrtPriceX96PoolLimit,
+                liquidity,
+                amountSpecified,
+                fee
+            );
 
         // 更新新的价格
         sqrtPriceX96 = state.sqrtPriceX96;
         tick = TickMath.getTickAtSqrtPrice(state.sqrtPriceX96);
 
-        // 计算手续费
+        // 计算手续费, 以累计的形式添加
         state.feeGrowthGlobalX128 += FullMath.mulDiv(
             state.feeAmount,
             FixedPoint128.Q128,
@@ -389,23 +393,34 @@ contract Pool is IPool {
         }
 
         // 计算交易后用户手里的 token0 和 token1 的数量
-        if (exactInput) {
-            state.amountSpecifiedRemaining -= (state.amountIn + state.feeAmount)
+        /**
+         * 注意这里的 amountIn 和 amountOut 都可以是负数, 就是通过这个方式来实现双向的交易
+         * 下面的注释以 token0 -> token1 为例子推演
+         */
+        if (exactInput) { // 指定了精确的 token0 输入
+            state.amountSpecifiedRemaining -= (state.amountIn + state.feeAmount) // 更新尚未使用的 token0 交易量
                 .toInt256();
-            state.amountCalculated = state.amountCalculated.sub(
-                state.amountOut.toInt256()
+            state.amountCalculated = state.amountCalculated.sub( // 更新已交易完成能够获取的 token1 交易量, amountOut 为正数(事实上 state 中的 amountIn 和 amountOut 都是 uint256)
+                state.amountOut.toInt256() 
             );
-        } else {
-            state.amountSpecifiedRemaining += state.amountOut.toInt256();
-            state.amountCalculated = state.amountCalculated.add(
+        } else { // 指定了精确的 token1 输出, 那么 amountSpecified 值代表的是用户希望拿到的 token1 数量, 而 amountSpecifiedRemainin 初始化为这个值
+            state.amountSpecifiedRemaining += state.amountOut.toInt256(); // 更新还需要拿到的 token1 数量, 注意 amountSpecifiedRemaining 和 amountSpecified 都是 int
+            state.amountCalculated = state.amountCalculated.add( // 更新累计的输入
                 (state.amountIn + state.feeAmount).toInt256()
             );
         }
 
-        (amount0, amount1) = zeroForOne == exactInput
+        /**
+         * @dev 若 == 成立, 有两种情况:
+         * @dev 1. token0 -> token1 && 精确输入;  2. token1 -> token0 && 精确输出 
+         * @dev 若 == 不成立, 也有两种情况:
+         * @dev 1. token0 -> token1 && 精确输出;  2. token1 -> token0 && 精确输入
+         * @dev 下面的注释以 == 成立时第一种情况来推算
+         */
+        (amount0, amount1) = zeroForOne == exactInput 
             ? (
-                amountSpecified - state.amountSpecifiedRemaining,
-                state.amountCalculated
+                amountSpecified - state.amountSpecifiedRemaining, // 注意, 这只是模拟计算: 用户要支付的数量 - 用户尚未完成的交易量 = 用户已完成的交易量(即用户实际要支付的)
+                state.amountCalculated // 负数
             )
             : (
                 state.amountCalculated,
