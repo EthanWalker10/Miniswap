@@ -86,9 +86,7 @@ contract Pool is IPool {
     }
 
     struct ModifyPositionParams {
-        // the address that owns the position
         address owner;
-        // any change in liquidity
         int128 liquidityDelta;
     }
 
@@ -132,17 +130,13 @@ contract Pool is IPool {
             )
         );
 
-        // 更新提取手续费的记录，同步到当前最新的 feeGrowthGlobal0X128，代表都提取完了
         position.feeGrowthInside0LastX128 = feeGrowthGlobal0X128;
         position.feeGrowthInside1LastX128 = feeGrowthGlobal1X128;
-        // 把可以提取的手续费记录到 tokensOwed0 和 tokensOwed1 中
-        // LP 可以通过 collect 来最终提取到用户自己账户上
         if (tokensOwed0 > 0 || tokensOwed1 > 0) {
             position.tokensOwed0 += tokensOwed0;
             position.tokensOwed1 += tokensOwed1;
         }
 
-        // 修改 liquidity
         liquidity = LiquidityMath.addDelta(liquidity, params.liquidityDelta);
         position.liquidity = LiquidityMath.addDelta(
             position.liquidity,
@@ -150,9 +144,6 @@ contract Pool is IPool {
         );
     }
 
-    /// @dev Get the pool's balance of token0
-    /// @dev This function is gas optimized to avoid a redundant extcodesize check in addition to the returndatasize
-    /// check
     /**
      * @dev 在传统的调用中，如果不做优化，通常需要先检查目标地址是否为合约（extcodesize）并验证返回数据的大小（returndatasize）
      * @dev 但 staticcall 已经隐式执行了这两个检查，避免了冗余的 Gas 消耗。
@@ -167,9 +158,6 @@ contract Pool is IPool {
         return abi.decode(data, (uint256));
     }
 
-    /// @dev Get the pool's balance of token1
-    /// @dev This function is gas optimized to avoid a redundant extcodesize check in addition to the returndatasize
-    /// check
     function balance1() private view returns (uint256) {
         (bool success, bytes memory data) = token1.staticcall(
             abi.encodeWithSelector(IERC20.balanceOf.selector, address(this))
@@ -187,7 +175,6 @@ contract Pool is IPool {
         bytes calldata data
     ) external override returns (uint256 amount0, uint256 amount1) {
         require(amount > 0, "Mint amount must be greater than 0");
-        // 基于 amount 计算出当前需要多少 amount0 和 amount1
         (int256 amount0Int, int256 amount1Int) = _modifyPosition(
             ModifyPositionParams({
                 owner: recipient,
@@ -201,8 +188,6 @@ contract Pool is IPool {
         uint256 balance1Before;
         if (amount0 > 0) balance0Before = balance0();
         if (amount1 > 0) balance1Before = balance1();
-        // 回调 mintCallback, LP 需要在这个回调方法中将对应的代币转入到 Pool 合约中
-        // 在 PositionManager 合约中实现 mintCallback 方法
         IMintCallback(msg.sender).mintCallback(amount0, amount1, data);
 
         if (amount0 > 0)
@@ -218,10 +203,7 @@ contract Pool is IPool {
         uint128 amount0Requested,
         uint128 amount1Requested
     ) external override returns (uint128 amount0, uint128 amount1) {
-        // 获取当前用户的 position
         Position storage position = positions[msg.sender];
-
-        // 把钱退给用户 recipient
         amount0 = amount0Requested > position.tokensOwed0
             ? position.tokensOwed0
             : amount0Requested;
@@ -241,9 +223,6 @@ contract Pool is IPool {
         emit Collect(msg.sender, recipient, amount0, amount1);
     }
 
-    /**
-     *
-     */
     function burn(
         uint128 amount
     ) external override returns (uint256 amount0, uint256 amount1) {
@@ -277,7 +256,6 @@ contract Pool is IPool {
         emit Burn(msg.sender, amount, amount0, amount1);
     }
 
-    // 交易中需要临时存储的变量
     struct SwapState {
         // 剩余待交换的金额, 在交换过程中动态更新，用来追踪尚未完成的交换数量。两种方向的交易都可以追踪
         int256 amountSpecifiedRemaining;
@@ -299,14 +277,12 @@ contract Pool is IPool {
     function swap(
         address recipient,
         bool zeroForOne,
-        int256 amountSpecified, // 指定用户要支付的数量, 大于 0 代表 token0 的数量, 小于 0 代表 token1 的数量
+        int256 amountSpecified,
         uint160 sqrtPriceLimitX96,
         bytes calldata data
     ) external override returns (int256 amount0, int256 amount1) {
         require(amountSpecified != 0, "AS");
 
-        // zeroForOne: 如果从 token0 交换 token1 则为 true，从 token1 交换 token0 则为 false
-        // 判断当前价格是否满足交易的条件
         /**
          * @dev 价格始终指的是 token1 相对于 token0 的数量比例, p = x/y; sqrtPriceX96 = 根号p * 2^96
          * @dev 核心就是 token0 -> token1 时, 用户希望 p 小; token1 -> token0 时, 用户希望 p 大; 所以这样校验区间
@@ -322,13 +298,11 @@ contract Pool is IPool {
             "SPL"
         );
 
-        // amountSpecified 大于 0 代表用户指定了 token0 的数量，小于 0 代表用户指定了 token1 的数量
         bool exactInput = amountSpecified > 0;
 
-        // 初始化 swap 状态
         SwapState memory state = SwapState({
-            amountSpecifiedRemaining: amountSpecified, // 初始状态下: 尚未完成的交易量就是用户开始指定的交易量(token0)
-            amountCalculated: 0, // 初始状态下: 已完成的交易 token1 数是0
+            amountSpecifiedRemaining: amountSpecified, 
+            amountCalculated: 0, 
             sqrtPriceX96: sqrtPriceX96,
             feeGrowthGlobalX128: zeroForOne
                 ? feeGrowthGlobal0X128
@@ -338,15 +312,12 @@ contract Pool is IPool {
             feeAmount: 0
         });
 
-        // 计算交易的上下限，基于 tick 计算价格
         uint160 sqrtPriceX96Lower = TickMath.getSqrtPriceAtTick(tickLower);
         uint160 sqrtPriceX96Upper = TickMath.getSqrtPriceAtTick(tickUpper);
-        // 计算用户交易价格的限制，如果是 zeroForOne 是 true，说明用户会换入 token0，会压低 token0 的价格（也就是池子的价格），所以要限制最低价格不能超过 sqrtPriceX96Lower
         uint160 sqrtPriceX96PoolLimit = zeroForOne
             ? sqrtPriceX96Lower
             : sqrtPriceX96Upper;
 
-        // 计算交易的具体数值
         /**
          * @dev 传入当前价格、限制价格、流动性数量、交易量和手续费
          * @dev 返回交易后新的价格, 可以交易的数量，以及手续费
@@ -356,7 +327,7 @@ contract Pool is IPool {
             state.amountIn,
             state.amountOut,
             state.feeAmount
-        ) = SwapMath.computeSwapStep( // 这里的就算逻辑就是书中的 delta(y)或者delta(x) 与 L 还有 delta(p) 的关系
+        ) = SwapMath.computeSwapStep( 
                 sqrtPriceX96,
                 /**
                  * token0 -> token1: 看pool价格限制是否小于用户价格限制, 如果是的话, 就选用户价格限制, 否则选pool价格限制
@@ -374,38 +345,33 @@ contract Pool is IPool {
                 fee
             );
 
-        // 更新新的价格
         sqrtPriceX96 = state.sqrtPriceX96;
         tick = TickMath.getTickAtSqrtPrice(state.sqrtPriceX96);
 
-        // 计算手续费, 以累计的形式添加
         state.feeGrowthGlobalX128 += FullMath.mulDiv(
             state.feeAmount,
             FixedPoint128.Q128,
             liquidity
         );
 
-        // 更新手续费相关信息
         if (zeroForOne) {
             feeGrowthGlobal0X128 = state.feeGrowthGlobalX128;
         } else {
             feeGrowthGlobal1X128 = state.feeGrowthGlobalX128;
         }
 
-        // 计算交易后用户手里的 token0 和 token1 的数量
         /**
-         * 注意这里的 amountIn 和 amountOut 都可以是负数, 就是通过这个方式来实现双向的交易
          * 下面的注释以 token0 -> token1 为例子推演
          */
         if (exactInput) { // 指定了精确的 token0 输入
-            state.amountSpecifiedRemaining -= (state.amountIn + state.feeAmount) // 更新尚未使用的 token0 交易量
+            state.amountSpecifiedRemaining -= (state.amountIn + state.feeAmount) 
                 .toInt256();
-            state.amountCalculated = state.amountCalculated.sub( // 更新已交易完成能够获取的 token1 交易量, amountOut 为正数(事实上 state 中的 amountIn 和 amountOut 都是 uint256)
+            state.amountCalculated = state.amountCalculated.sub( 
                 state.amountOut.toInt256() 
             );
-        } else { // 指定了精确的 token1 输出, 那么 amountSpecified 值代表的是用户希望拿到的 token1 数量, 而 amountSpecifiedRemainin 初始化为这个值
-            state.amountSpecifiedRemaining += state.amountOut.toInt256(); // 更新还需要拿到的 token1 数量, 注意 amountSpecifiedRemaining 和 amountSpecified 都是 int
-            state.amountCalculated = state.amountCalculated.add( // 更新累计的输入
+        } else { 
+            state.amountSpecifiedRemaining += state.amountOut.toInt256(); 
+            state.amountCalculated = state.amountCalculated.add( 
                 (state.amountIn + state.feeAmount).toInt256()
             );
         }
@@ -419,8 +385,8 @@ contract Pool is IPool {
          */
         (amount0, amount1) = zeroForOne == exactInput 
             ? (
-                amountSpecified - state.amountSpecifiedRemaining, // 注意, 这只是模拟计算: 用户要支付的数量 - 用户尚未完成的交易量 = 用户已完成的交易量(即用户实际要支付的)
-                state.amountCalculated // 负数
+                amountSpecified - state.amountSpecifiedRemaining, 
+                state.amountCalculated 
             )
             : (
                 state.amountCalculated,
