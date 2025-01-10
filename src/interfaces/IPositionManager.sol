@@ -26,12 +26,16 @@ interface IPositionManager is IERC721 {
     ) external view returns (PositionInfo[] memory positionInfo);
 
     struct MintParams {
+        // token0, token1, index 定位具体的 pool
         address token0;
         address token1;
         uint32 index;
+        // 用户希望存入的代币数量
         uint256 amount0Desired;
         uint256 amount1Desired;
+        // 接受 Lp token 的地址
         address recipient;
+        // 指定的操作截至时间, 到时间如果没有执行则会取消
         uint256 deadline;
     }
 

@@ -24,8 +24,9 @@ contract PositionManager is IPositionManager, ERC721 {
         poolManager = IPoolManager(_poolManger);
     }
 
-    // 用一个 mapping 来存放所有 Position 的信息 
-    mapping(uint256 => PositionInfo) public positions; /** @dev key 则是 uint256 类型的 PositionId */
+    // 用一个 mapping 来存放所有 Position 的信息
+    mapping(uint256 => PositionInfo)
+        public positions; /** @dev key 则是 uint256 类型的 PositionId */
 
     // 获取全部的 Position 信息
     function getAllPositions()
@@ -54,6 +55,12 @@ contract PositionManager is IPositionManager, ERC721 {
         _;
     }
 
+    /**
+     * mint 一个 NFT 作为 position 发给 LP
+     * NFT 的 tokenId 就是 positionId
+     * 通过 MintParams 里面的 token0 和 token1 以及 index 获取对应的 Pool
+     * 调用 poolManager 的 getPool 方法获取 Pool 地址
+     */
     function mint(
         MintParams calldata params
     )
@@ -68,10 +75,6 @@ contract PositionManager is IPositionManager, ERC721 {
             uint256 amount1
         )
     {
-        // mint 一个 NFT 作为 position 发给 LP
-        // NFT 的 tokenId 就是 positionId
-        // 通过 MintParams 里面的 token0 和 token1 以及 index 获取对应的 Pool
-        // 调用 poolManager 的 getPool 方法获取 Pool 地址
         address _pool = poolManager.getPool(
             params.token0,
             params.token1,
@@ -80,18 +83,16 @@ contract PositionManager is IPositionManager, ERC721 {
         IPool pool = IPool(_pool);
 
         // 通过获取 pool 相关信息，结合 params.amount0Desired 和 params.amount1Desired 计算这次要注入的流动性
-
         uint160 sqrtPriceX96 = pool.sqrtPriceX96();
-        uint160 sqrtRatioAX96 = TickMath.getSqrtPriceAtTick(pool.tickLower());
-        uint160 sqrtRatioBX96 = TickMath.getSqrtPriceAtTick(pool.tickUpper());
-
-        liquidity = LiquidityAmounts.getLiquidityForAmounts(
-            sqrtPriceX96,
-            sqrtRatioAX96,
-            sqrtRatioBX96,
-            params.amount0Desired,
-            params.amount1Desired
-        );
+        uint160 sqrtRatioAX96 = TickMath.getSqrtPriceAtTick(pool.tickLower()); // 价格下界
+        uint160 sqrtRatioBX96 = TickMath.getSqrtPriceAtTick(pool.tickUpper()); // 价格上界
+        liquidity = LiquidityAmounts.getLiquidityForAmounts( // 后续根据流动性份额计算出需要的 amount0 和 amount1
+                sqrtPriceX96,
+                sqrtRatioAX96,
+                sqrtRatioBX96,
+                params.amount0Desired,
+                params.amount1Desired
+            );
 
         // data 是 mint 后回调 PositionManager 会额外带的数据
         // 需要 PoistionManger 实现回调，在回调中给 Pool 打钱
@@ -102,8 +103,9 @@ contract PositionManager is IPositionManager, ERC721 {
             msg.sender
         );
 
+        // 计算铸造流动性所需的 token 数量, 注意 mint 函数调用完成之后, liquidity 以及铸造了
         (amount0, amount1) = pool.mint(address(this), liquidity, data);
-
+        // 给接收者发 LP token, 但是这个 token 本身没有指明 liquidity 是多少, 这个 LP token 代表多少份额维护在 positions 这个 mapping 中
         _mint(params.recipient, (positionId = _nextId++));
 
         (
@@ -114,6 +116,7 @@ contract PositionManager is IPositionManager, ERC721 {
 
         ) = pool.getPosition(address(this));
 
+        // 设置这个 LP token 对应的份额以及其他的头寸信息
         positions[positionId] = PositionInfo({
             id: positionId,
             owner: params.recipient,
@@ -137,6 +140,9 @@ contract PositionManager is IPositionManager, ERC721 {
         _;
     }
 
+    /**
+     * @dev 将 positionId 对应的 liquidity 全部 burn
+     */
     function burn(
         uint256 positionId
     )
@@ -168,6 +174,11 @@ contract PositionManager is IPositionManager, ERC721 {
 
         ) = pool.getPosition(address(this));
 
+        /**
+         * Important!!!
+         * 上面调用 pool.burn 方法之后, 实际上在 pool 的 positions 中更新的是全局的头寸, 手续费等信息
+         * 这里需要计算 Lp token 对应的手续费等信息
+         */
         position.tokensOwed0 +=
             uint128(amount0) +
             uint128(
@@ -190,7 +201,7 @@ contract PositionManager is IPositionManager, ERC721 {
                 )
             );
 
-        // 更新 position 的信息
+        // 更新 position 的信息, 尚未 collect
         position.feeGrowthInside0LastX128 = feeGrowthInside0LastX128;
         position.feeGrowthInside1LastX128 = feeGrowthInside1LastX128;
         position.liquidity = 0;
@@ -223,9 +234,10 @@ contract PositionManager is IPositionManager, ERC721 {
         // position 已经彻底没用了，销毁
         position.tokensOwed0 = 0;
         position.tokensOwed1 = 0;
-        _burn(positionId);
+        _burn(positionId); // 销毁 nfc
     }
 
+    // pool 合约回调该函数, 在这里让 payer 给 pool 打钱
     function mintCallback(
         uint256 amount0,
         uint256 amount1,
