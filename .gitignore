@@ -1,5 +1,6 @@
 src/Pool-middle.sol
+src/PoolV3.sol
+src/PoolComment.sol
 
 notes.md
 
-src/PoolComment.sol
