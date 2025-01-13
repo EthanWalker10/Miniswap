@@ -239,6 +239,7 @@ contract SwapRouter is ISwapRouter {
         // payer 是 address(0)，这是一个用于预估 token 的请求（quoteExactInput or quoteExactOutput）
         // 参考代码 https://github.com/Uniswap/v3-periphery/blob/main/contracts/lens/Quoter.sol#L38
         if (payer == address(0)) {
+            // 抛出 amount0 和 amount1 并捕获, 实际上的值已经在 pool.swap 计算出, 直接从内存中拿
             assembly {
                 let ptr := mload(0x40)
                 mstore(ptr, amount0Delta)
