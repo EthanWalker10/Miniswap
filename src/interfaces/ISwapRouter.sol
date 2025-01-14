@@ -5,13 +5,7 @@ pragma abicoder v2;
 import "./IPool.sol";
 
 interface ISwapRouter is ISwapCallback {
-    event Swap(
-        address indexed sender,
-        bool zeroForOne,
-        uint256 amountIn,
-        uint256 amountInRemaining,
-        uint256 amountOut
-    );
+    event Swap(address indexed sender, bool zeroForOne, uint256 amountIn, uint256 amountInRemaining, uint256 amountOut);
 
     struct ExactInputParams {
         address tokenIn;
@@ -24,9 +18,7 @@ interface ISwapRouter is ISwapCallback {
         uint160 sqrtPriceLimitX96;
     }
 
-    function exactInput(
-        ExactInputParams calldata params
-    ) external payable returns (uint256 amountOut);
+    function exactInput(ExactInputParams calldata params) external payable returns (uint256 amountOut);
 
     struct ExactOutputParams {
         address tokenIn;
@@ -39,9 +31,7 @@ interface ISwapRouter is ISwapCallback {
         uint160 sqrtPriceLimitX96;
     }
 
-    function exactOutput(
-        ExactOutputParams calldata params
-    ) external payable returns (uint256 amountIn);
+    function exactOutput(ExactOutputParams calldata params) external payable returns (uint256 amountIn);
 
     struct QuoteExactInputParams {
         address tokenIn;
@@ -51,9 +41,7 @@ interface ISwapRouter is ISwapCallback {
         uint160 sqrtPriceLimitX96;
     }
 
-    function quoteExactInput(
-        QuoteExactInputParams calldata params
-    ) external returns (uint256 amountOut);
+    function quoteExactInput(QuoteExactInputParams calldata params) external returns (uint256 amountOut);
 
     struct QuoteExactOutputParams {
         address tokenIn;
@@ -63,7 +51,5 @@ interface ISwapRouter is ISwapCallback {
         uint160 sqrtPriceLimitX96;
     }
 
-    function quoteExactOutput(
-        QuoteExactOutputParams calldata params
-    ) external returns (uint256 amountIn);
+    function quoteExactOutput(QuoteExactOutputParams calldata params) external returns (uint256 amountIn);
 }

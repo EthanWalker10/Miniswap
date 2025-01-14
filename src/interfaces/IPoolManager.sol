@@ -35,7 +35,8 @@ interface IPoolManager is IFactory {
         uint160 sqrtPriceX96;
     }
 
-    function createAndInitializePoolIfNecessary(
-        CreateAndInitializeParams calldata params
-    ) external payable returns (address pool);
+    function createAndInitializePoolIfNecessary(CreateAndInitializeParams calldata params)
+        external
+        payable
+        returns (address pool);
 }

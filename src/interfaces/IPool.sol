@@ -2,19 +2,11 @@
 pragma solidity ^0.8.24;
 
 interface IMintCallback {
-    function mintCallback(
-        uint256 amount0Owed,
-        uint256 amount1Owed,
-        bytes calldata data
-    ) external;
+    function mintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata data) external;
 }
 
 interface ISwapCallback {
-    function swapCallback(
-        int256 amount0Delta,
-        int256 amount1Delta,
-        bytes calldata data
-    ) external;
+    function swapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external;
 }
 
 interface IPool {
@@ -48,9 +40,7 @@ interface IPool {
     /// @dev This value can overflow the uint256
     function feeGrowthGlobal1X128() external view returns (uint256);
 
-    function getPosition(
-        address owner
-    )
+    function getPosition(address owner)
         external
         view
         returns (
@@ -61,43 +51,21 @@ interface IPool {
             uint128 tokensOwed1
         );
 
-    event Mint(
-        address sender,
-        address indexed owner,
-        uint128 amount,
-        uint256 amount0,
-        uint256 amount1
-    );
+    event Mint(address sender, address indexed owner, uint128 amount, uint256 amount0, uint256 amount1);
 
-    function mint(
-        address recipient,
-        uint128 amount,
-        bytes calldata data
-    ) external returns (uint256 amount0, uint256 amount1);
+    function mint(address recipient, uint128 amount, bytes calldata data)
+        external
+        returns (uint256 amount0, uint256 amount1);
 
-    event Collect(
-        address indexed owner,
-        address recipient,
-        uint128 amount0,
-        uint128 amount1
-    );
+    event Collect(address indexed owner, address recipient, uint128 amount0, uint128 amount1);
 
-    function collect(
-        address recipient,
-        uint128 amount0Requested,
-        uint128 amount1Requested
-    ) external returns (uint128 amount0, uint128 amount1);
+    function collect(address recipient, uint128 amount0Requested, uint128 amount1Requested)
+        external
+        returns (uint128 amount0, uint128 amount1);
 
-    event Burn(
-        address indexed owner,
-        uint128 amount,
-        uint256 amount0,
-        uint256 amount1
-    );
+    event Burn(address indexed owner, uint128 amount, uint256 amount0, uint256 amount1);
 
-    function burn(
-        uint128 amount
-    ) external returns (uint256 amount0, uint256 amount1);
+    function burn(uint128 amount) external returns (uint256 amount0, uint256 amount1);
 
     event Swap(
         address indexed sender,

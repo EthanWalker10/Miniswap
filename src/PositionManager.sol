@@ -25,16 +25,13 @@ contract PositionManager is IPositionManager, ERC721 {
     }
 
     // 用一个 mapping 来存放所有 Position 的信息
-    mapping(uint256 => PositionInfo)
-        public positions; /** @dev key 则是 uint256 类型的 PositionId */
+    mapping(uint256 => PositionInfo) public positions;
+    /**
+     * @dev key 则是 uint256 类型的 PositionId
+     */
 
     // 获取全部的 Position 信息
-    function getAllPositions()
-        external
-        view
-        override
-        returns (PositionInfo[] memory positionInfo)
-    {
+    function getAllPositions() external view override returns (PositionInfo[] memory positionInfo) {
         positionInfo = new PositionInfo[](_nextId - 1);
         for (uint32 i = 0; i < _nextId - 1; i++) {
             positionInfo[i] = positions[i + 1];
@@ -61,25 +58,14 @@ contract PositionManager is IPositionManager, ERC721 {
      * 通过 MintParams 里面的 token0 和 token1 以及 index 获取对应的 Pool
      * 调用 poolManager 的 getPool 方法获取 Pool 地址
      */
-    function mint(
-        MintParams calldata params
-    )
+    function mint(MintParams calldata params)
         external
         payable
         override
         checkDeadline(params.deadline)
-        returns (
-            uint256 positionId,
-            uint128 liquidity,
-            uint256 amount0,
-            uint256 amount1
-        )
+        returns (uint256 positionId, uint128 liquidity, uint256 amount0, uint256 amount1)
     {
-        address _pool = poolManager.getPool(
-            params.token0,
-            params.token1,
-            params.index
-        );
+        address _pool = poolManager.getPool(params.token0, params.token1, params.index);
         IPool pool = IPool(_pool);
 
         // 通过获取 pool 相关信息，结合 params.amount0Desired 和 params.amount1Desired 计算这次要注入的流动性
@@ -87,38 +73,22 @@ contract PositionManager is IPositionManager, ERC721 {
         uint160 sqrtRatioAX96 = TickMath.getSqrtPriceAtTick(pool.tickLower()); // 价格下界
         uint160 sqrtRatioBX96 = TickMath.getSqrtPriceAtTick(pool.tickUpper()); // 价格上界
         liquidity = LiquidityAmounts.getLiquidityForAmounts( // 后续根据流动性份额计算出需要的 amount0 和 amount1
-                sqrtPriceX96,
-                sqrtRatioAX96,
-                sqrtRatioBX96,
-                params.amount0Desired,
-                params.amount1Desired
-            );
+        sqrtPriceX96, sqrtRatioAX96, sqrtRatioBX96, params.amount0Desired, params.amount1Desired);
 
         // data 是 mint 后回调 PositionManager 会额外带的数据
         // 需要 PoistionManger 实现回调，在回调中给 Pool 打钱
-        bytes memory data = abi.encode(
-            params.token0,
-            params.token1,
-            params.index,
-            msg.sender
-        );
+        bytes memory data = abi.encode(params.token0, params.token1, params.index, msg.sender);
 
         // 计算铸造流动性所需的 token 数量, 注意 mint 函数调用完成之后, liquidity 以及铸造了
         (amount0, amount1) = pool.mint(address(this), liquidity, data);
         // 给接收者发 LP token, 但是这个 token 本身没有指明 liquidity 是多少, 这个 LP token 代表多少份额维护在 positions 这个 mapping 中
         _mint(params.recipient, (positionId = _nextId++));
 
-        (
-            ,
-            uint256 feeGrowthInside0LastX128,
-            uint256 feeGrowthInside1LastX128,
-            ,
-
-        ) = pool.getPosition(address(this));
+        (, uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128,,) = pool.getPosition(address(this));
 
         // 设置这个 LP token 对应的份额以及其他的头寸信息
         positions[positionId] = PositionInfo({
-            id: positionId,
+            id: positionId, // delete? 
             owner: params.recipient,
             token0: params.token0,
             token1: params.token1,
@@ -143,9 +113,7 @@ contract PositionManager is IPositionManager, ERC721 {
     /**
      * @dev 将 positionId 对应的 liquidity 全部 burn
      */
-    function burn(
-        uint256 positionId
-    )
+    function burn(uint256 positionId)
         external
         override
         isAuthorizedForToken(positionId)
@@ -157,47 +125,29 @@ contract PositionManager is IPositionManager, ERC721 {
         // 通过 positionId 获取对应 LP 的流动性
         uint128 _liquidity = position.liquidity;
         // 调用 Pool 的方法给 LP 退流动性
-        address _pool = poolManager.getPool(
-            position.token0,
-            position.token1,
-            position.index
-        );
+        address _pool = poolManager.getPool(position.token0, position.token1, position.index);
         IPool pool = IPool(_pool);
         (amount0, amount1) = pool.burn(_liquidity);
 
         // 计算这部分流动性产生的手续费
-        (
-            ,
-            uint256 feeGrowthInside0LastX128,
-            uint256 feeGrowthInside1LastX128,
-            ,
-
-        ) = pool.getPosition(address(this));
+        (, uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128,,) = pool.getPosition(address(this));
 
         /**
          * Important!!!
          * 上面调用 pool.burn 方法之后, 实际上在 pool 的 positions 中更新的是全局的头寸, 手续费等信息
          * 这里需要计算 Lp token 对应的手续费等信息
          */
-        position.tokensOwed0 +=
-            uint128(amount0) +
-            uint128(
+        position.tokensOwed0 += uint128(amount0)
+            + uint128(
                 FullMath.mulDiv(
-                    feeGrowthInside0LastX128 -
-                        position.feeGrowthInside0LastX128,
-                    position.liquidity,
-                    FixedPoint128.Q128
+                    feeGrowthInside0LastX128 - position.feeGrowthInside0LastX128, position.liquidity, FixedPoint128.Q128
                 )
             );
 
-        position.tokensOwed1 +=
-            uint128(amount1) +
-            uint128(
+        position.tokensOwed1 += uint128(amount1)
+            + uint128(
                 FullMath.mulDiv(
-                    feeGrowthInside1LastX128 -
-                        position.feeGrowthInside1LastX128,
-                    position.liquidity,
-                    FixedPoint128.Q128
+                    feeGrowthInside1LastX128 - position.feeGrowthInside1LastX128, position.liquidity, FixedPoint128.Q128
                 )
             );
 
@@ -207,10 +157,7 @@ contract PositionManager is IPositionManager, ERC721 {
         position.liquidity = 0;
     }
 
-    function collect(
-        uint256 positionId,
-        address recipient
-    )
+    function collect(uint256 positionId, address recipient)
         external
         override
         isAuthorizedForToken(positionId)
@@ -219,17 +166,9 @@ contract PositionManager is IPositionManager, ERC721 {
         // 通过 isAuthorizedForToken 检查 positionId 是否有权限
         // 调用 Pool 的方法给 LP 退流动性
         PositionInfo storage position = positions[positionId];
-        address _pool = poolManager.getPool(
-            position.token0,
-            position.token1,
-            position.index
-        );
+        address _pool = poolManager.getPool(position.token0, position.token1, position.index);
         IPool pool = IPool(_pool);
-        (amount0, amount1) = pool.collect(
-            recipient,
-            position.tokensOwed0,
-            position.tokensOwed1
-        );
+        (amount0, amount1) = pool.collect(recipient, position.tokensOwed0, position.tokensOwed1);
 
         // position 已经彻底没用了，销毁
         position.tokensOwed0 = 0;
@@ -238,14 +177,10 @@ contract PositionManager is IPositionManager, ERC721 {
     }
 
     // pool 合约回调该函数, 在这里让 payer 给 pool 打钱
-    function mintCallback(
-        uint256 amount0,
-        uint256 amount1,
-        bytes calldata data
-    ) external override {
+    function mintCallback(uint256 amount0, uint256 amount1, bytes calldata data) external override {
         // 检查 callback 的合约地址是否是 Pool
-        (address token0, address token1, uint32 index, address payer) = abi
-            .decode(data, (address, address, uint32, address));
+        (address token0, address token1, uint32 index, address payer) =
+            abi.decode(data, (address, address, uint32, address));
         address _pool = poolManager.getPool(token0, token1, index);
         require(_pool == msg.sender, "Invalid callback caller");
 

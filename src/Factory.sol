@@ -10,10 +10,7 @@ contract Factory is IFactory {
     Parameters public override parameters;
 
     // make sure that token0 < token1
-    function sortToken(
-        address tokenA,
-        address tokenB
-    ) private pure returns (address, address) {
+    function sortToken(address tokenA, address tokenB) private pure returns (address, address) {
         return tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
     }
 
@@ -34,13 +31,11 @@ contract Factory is IFactory {
         return pools[token0][token1][index];
     }
 
-    function createPool(
-        address tokenA,
-        address tokenB,
-        int24 tickLower,
-        int24 tickUpper,
-        uint24 fee
-    ) external override returns (address pool) {
+    function createPool(address tokenA, address tokenB, int24 tickLower, int24 tickUpper, uint24 fee)
+        external
+        override
+        returns (address pool)
+    {
         // validate token's individuality
         require(tokenA != tokenB, "IDENTICAL_ADDRESSES");
 
@@ -60,28 +55,17 @@ contract Factory is IFactory {
             IPool currentPool = IPool(existingPools[i]);
 
             if (
-                currentPool.tickLower() == tickLower &&
-                currentPool.tickUpper() == tickUpper &&
-                currentPool.fee() == fee
+                currentPool.tickLower() == tickLower && currentPool.tickUpper() == tickUpper && currentPool.fee() == fee
             ) {
                 return existingPools[i];
             }
         }
 
         // save pool info
-        parameters = Parameters(
-            address(this),
-            token0,
-            token1,
-            tickLower,
-            tickUpper,
-            fee
-        );
+        parameters = Parameters(address(this), token0, token1, tickLower, tickUpper, fee);
 
         // generate create2 salt
-        bytes32 salt = keccak256(
-            abi.encode(token0, token1, tickLower, tickUpper, fee)
-        );
+        bytes32 salt = keccak256(abi.encode(token0, token1, tickLower, tickUpper, fee));
 
         // create pool
         // pool 被创建时在 constructor 中反向获取参数
@@ -94,14 +78,6 @@ contract Factory is IFactory {
         // delete pool info
         delete parameters;
 
-        emit PoolCreated(
-            token0,
-            token1,
-            uint32(existingPools.length),
-            tickLower,
-            tickUpper,
-            fee,
-            pool
-        );
+        emit PoolCreated(token0, token1, uint32(existingPools.length), tickLower, tickUpper, fee, pool);
     }
 }

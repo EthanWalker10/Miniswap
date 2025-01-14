@@ -43,11 +43,7 @@ library CustomRevert {
     }
 
     /// @dev Reverts with a custom error with two int24 arguments
-    function revertWith(
-        bytes4 selector,
-        int24 value1,
-        int24 value2
-    ) internal pure {
+    function revertWith(bytes4 selector, int24 value1, int24 value2) internal pure {
         assembly ("memory-safe") {
             let fmp := mload(0x40)
             mstore(fmp, selector)
@@ -58,53 +54,30 @@ library CustomRevert {
     }
 
     /// @dev Reverts with a custom error with two uint160 arguments
-    function revertWith(
-        bytes4 selector,
-        uint160 value1,
-        uint160 value2
-    ) internal pure {
+    function revertWith(bytes4 selector, uint160 value1, uint160 value2) internal pure {
         assembly ("memory-safe") {
             let fmp := mload(0x40)
             mstore(fmp, selector)
-            mstore(
-                add(fmp, 0x04),
-                and(value1, 0xffffffffffffffffffffffffffffffffffffffff)
-            )
-            mstore(
-                add(fmp, 0x24),
-                and(value2, 0xffffffffffffffffffffffffffffffffffffffff)
-            )
+            mstore(add(fmp, 0x04), and(value1, 0xffffffffffffffffffffffffffffffffffffffff))
+            mstore(add(fmp, 0x24), and(value2, 0xffffffffffffffffffffffffffffffffffffffff))
             revert(fmp, 0x44)
         }
     }
 
     /// @dev Reverts with a custom error with two address arguments
-    function revertWith(
-        bytes4 selector,
-        address value1,
-        address value2
-    ) internal pure {
+    function revertWith(bytes4 selector, address value1, address value2) internal pure {
         assembly ("memory-safe") {
             let fmp := mload(0x40)
             mstore(fmp, selector)
-            mstore(
-                add(fmp, 0x04),
-                and(value1, 0xffffffffffffffffffffffffffffffffffffffff)
-            )
-            mstore(
-                add(fmp, 0x24),
-                and(value2, 0xffffffffffffffffffffffffffffffffffffffff)
-            )
+            mstore(add(fmp, 0x04), and(value1, 0xffffffffffffffffffffffffffffffffffffffff))
+            mstore(add(fmp, 0x24), and(value2, 0xffffffffffffffffffffffffffffffffffffffff))
             revert(fmp, 0x44)
         }
     }
 
     /// @notice bubble up the revert message returned by a call and revert with the selector provided
     /// @dev this function should only be used with custom errors of the type `CustomError(address target, bytes revertReason)`
-    function bubbleUpAndRevertWith(
-        bytes4 selector,
-        address addr
-    ) internal pure {
+    function bubbleUpAndRevertWith(bytes4 selector, address addr) internal pure {
         assembly ("memory-safe") {
             let size := returndatasize()
             let fmp := mload(0x40)

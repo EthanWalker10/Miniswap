@@ -14,12 +14,7 @@ contract PoolManager is Factory, IPoolManager {
         return pairs;
     }
 
-    function getAllPools()
-        external
-        view
-        override
-        returns (PoolInfo[] memory poolsInfo)
-    {
+    function getAllPools() external view override returns (PoolInfo[] memory poolsInfo) {
         uint32 length = 0;
         // 计算所有池子的数量
         // pairs 同时也可以作为 pools 的 key, 否则作为 mapping 的 pools 无法迭代返回
@@ -30,9 +25,7 @@ contract PoolManager is Factory, IPoolManager {
         // 再填充数据
         poolsInfo = new PoolInfo[](length);
         for (uint32 i = 0; i < pairs.length; i++) {
-            address[] memory addresses = pools[pairs[i].token0][
-                pairs[i].token1
-            ];
+            address[] memory addresses = pools[pairs[i].token0][pairs[i].token1];
             for (uint32 j = 0; j < addresses.length; j++) {
                 IPool pool = IPool(addresses[j]);
                 poolsInfo[i + j] = PoolInfo({
@@ -51,9 +44,12 @@ contract PoolManager is Factory, IPoolManager {
         return poolsInfo;
     }
 
-    function createAndInitializePoolIfNecessary(
-        CreateAndInitializeParams calldata params
-    ) external payable override returns (address poolAddress) {
+    function createAndInitializePoolIfNecessary(CreateAndInitializeParams calldata params)
+        external
+        payable
+        override
+        returns (address poolAddress)
+    {
         require(
             // params 中需要传入交易价格(按照 token0/token1 的方式计算)
             // 因此防止用户搞错 token0 和 token1 的顺序进而搞错价格
@@ -61,13 +57,7 @@ contract PoolManager is Factory, IPoolManager {
             "token0 must be less than token1"
         );
 
-        poolAddress = this.createPool(
-            params.token0,
-            params.token1,
-            params.tickLower,
-            params.tickUpper,
-            params.fee
-        );
+        poolAddress = this.createPool(params.token0, params.token1, params.tickLower, params.tickUpper, params.fee);
 
         IPool pool = IPool(poolAddress);
 
@@ -80,9 +70,7 @@ contract PoolManager is Factory, IPoolManager {
 
             if (index == 1) {
                 // 如果是第一次添加该交易对，需要记录到 pairs 中
-                pairs.push(
-                    Pair({token0: pool.token0(), token1: pool.token1()})
-                );
+                pairs.push(Pair({token0: pool.token0(), token1: pool.token1()}));
             }
         }
     }

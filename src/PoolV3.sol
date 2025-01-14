@@ -1,4 +1,5 @@
-// // SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity ^0.8.6;
 // pragma solidity =0.7.6;
 
 // import "./interfaces/IUniswapV3Pool.sol";
