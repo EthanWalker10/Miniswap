@@ -1,6 +1,17 @@
+# Compiler files
+cache/
+out/
+
+# middle files
 src/Pool-middle.sol
 src/PoolV3.sol
 src/PoolComment.sol
 
+# Docs
 notes.md
+
+# Dotenv file
+.env
+
+
 
