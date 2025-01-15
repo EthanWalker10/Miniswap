@@ -88,7 +88,7 @@ contract PositionManager is IPositionManager, ERC721 {
 
         // 设置这个 LP token 对应的份额以及其他的头寸信息
         positions[positionId] = PositionInfo({
-            // id: positionId, // delete? 
+            // id: positionId, // delete?
             owner: params.recipient,
             token0: params.token0,
             token1: params.token1,
