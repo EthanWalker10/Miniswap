@@ -8,7 +8,7 @@ import {Test, console2} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 
 
-contract PoolTest is Test {
+contract FactoryTest is Test {
     Factory factory;
 
     TestToken token0;
