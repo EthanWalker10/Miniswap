@@ -21,7 +21,7 @@ interface IPositionManager is IERC721 {
         uint256 feeGrowthInside1LastX128;
     }
 
-    function getPositionInfo(uint256[] memory positionId) external view returns (PositionInfo[] memory positionInfo);
+    function getAllPositions() external view returns (PositionInfo[] memory positionInfo);
 
     struct MintParams {
         // token0, token1, index 定位具体的 pool
