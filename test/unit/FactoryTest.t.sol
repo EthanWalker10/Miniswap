@@ -36,13 +36,14 @@ contract FactoryTest is Test {
     function testCreatePool() public {
         vm.expectEmit();
         emit IFactory.PoolCreated(address(token0), address(token1), 0, 10, 100, 3000, 0x686E00a6ff0624d0F7E723DD9e726dFB6aCB3248);
-        address pool = factory.createPool(
+        address poolAddress = factory.createPool(
             address(token0),
             address(token1),
             10,
             100,
             3000
         );
+        console2.log("deployed pool address:", poolAddress);
         
         /* other ways to use `vm.expectEmit`*/
         // vm.expectEmit(true, true, true, false);
