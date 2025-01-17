@@ -43,7 +43,8 @@ contract FactoryTest is Test {
             100,
             3000
         );
-
+        
+        /* other ways to use `vm.expectEmit`*/
         // vm.expectEmit(true, true, true, false);
         // emit IFactory.PoolCreated(address(token0), address(token1), 0, 10, 100, 3000, 0x686E00a6ff0624d0F7E723DD9e726dFB6aCB3248);
         // address pool = factory.createPool(
