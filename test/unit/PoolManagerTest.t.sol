@@ -90,7 +90,7 @@ contract PoolManagerTest is Test {
         _;
     }
 
-    function testGetPairsIfExists() public poolCreated {
+    function testGetPairs() public poolCreated {
         PoolManager.Pair[] memory pairs = poolManager.getPairs();
         assertEq(pairs[0].token0, params1.token0);
         assertEq(pairs[0].token1, params1.token1);
@@ -98,7 +98,7 @@ contract PoolManagerTest is Test {
         assertEq(pairs[1].token1, params3.token1);
     }
 
-    
+    function test
 
 
 }
