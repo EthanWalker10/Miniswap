@@ -98,7 +98,10 @@ contract PoolManagerTest is Test {
         assertEq(pairs[1].token1, params3.token1);
     }
 
-    function test
+    function testGetAllPools() public poolCreated {
+        PoolManager.PoolInfo[] memory poolsInfo = poolManager.getAllPools();
+        assertEq(poolsInfo.length, 3);
+    }
 
 
 }
