@@ -10,7 +10,7 @@ interface IPoolManager is IFactory {
         address token1;
         uint32 index;
         uint24 fee;
-        uint8 feeProtocol;
+        uint8 feeProtocol; // 低 4 位表示 token0 的协议抽取费用比例。高 4 位表示 token1 的协议费用比例。
         int24 tickLower;
         int24 tickUpper;
         int24 tick;
@@ -32,7 +32,7 @@ interface IPoolManager is IFactory {
         uint24 fee;
         int24 tickLower;
         int24 tickUpper;
-        uint160 sqrtPriceX96;
+        uint160 sqrtPriceX96; // 事实上, 创建 pool 时只用了上面 5 个字段
     }
 
     function createAndInitializePoolIfNecessary(CreateAndInitializeParams calldata params)

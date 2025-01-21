@@ -90,6 +90,17 @@ contract PoolManagerTest is Test {
         _;
     }
 
+    function comparePoolInfoWithParams(
+        PoolManager.PoolInfo calldata poolInfo, 
+        IPoolManager.CreateAndInitializeParams calldata params
+    ) public pure returns(bool ok) {
+        ok = poolInfo.token0 == params.token0 &&
+            poolInfo.token1 == params.token1 &&
+            poolInfo.fee == params.fee &&
+            poolInfo.tickLower == params.tickLower &&
+            poolInfo.tickUpper == params.tickUpper;
+    }
+
     function testGetPairs() public poolCreated {
         PoolManager.Pair[] memory pairs = poolManager.getPairs();
         assertEq(pairs[0].token0, params1.token0);
@@ -101,6 +112,7 @@ contract PoolManagerTest is Test {
     function testGetAllPools() public poolCreated {
         PoolManager.PoolInfo[] memory poolsInfo = poolManager.getAllPools();
         assertEq(poolsInfo.length, 3);
+        
     }
 
 
