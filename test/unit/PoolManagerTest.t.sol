@@ -90,6 +90,14 @@ contract PoolManagerTest is Test {
         _;
     }
 
+    function testGetPairs() public poolCreated {
+        PoolManager.Pair[] memory pairs = poolManager.getPairs();
+        assertEq(pairs[0].token0, params1.token0);
+        assertEq(pairs[0].token1, params1.token1);
+        assertEq(pairs[1].token0, params3.token0);
+        assertEq(pairs[1].token1, params3.token1);
+    }
+
     function comparePoolInfoWithParams(
         PoolManager.PoolInfo calldata poolInfo, 
         IPoolManager.CreateAndInitializeParams calldata params
@@ -101,18 +109,17 @@ contract PoolManagerTest is Test {
             poolInfo.tickUpper == params.tickUpper;
     }
 
-    function testGetPairs() public poolCreated {
-        PoolManager.Pair[] memory pairs = poolManager.getPairs();
-        assertEq(pairs[0].token0, params1.token0);
-        assertEq(pairs[0].token1, params1.token1);
-        assertEq(pairs[1].token0, params3.token0);
-        assertEq(pairs[1].token1, params3.token1);
-    }
-
     function testGetAllPools() public poolCreated {
         PoolManager.PoolInfo[] memory poolsInfo = poolManager.getAllPools();
         assertEq(poolsInfo.length, 3);
-        
+
+        IPoolManager.CreateAndInitializeParams[3] memory multiParams = [params1, params2, params3];
+        console2.log(multiParams[0].token0, multiParams[1].token0, multiParams[2].token0);
+        for (uint24 i=0; i < poolsInfo.length; i++) {
+            // comparePoolInfoWithParams(poolsInfo[i], multiParams[i]);
+            assert(this.comparePoolInfoWithParams(poolsInfo[i], multiParams[i]));
+        }
+
     }
 
 
