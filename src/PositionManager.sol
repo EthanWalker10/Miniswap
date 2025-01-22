@@ -20,7 +20,7 @@ contract PositionManager is IPositionManager, ERC721 {
     /// @dev The ID of the next token that will be minted. Skips 0
     uint176 private _nextId = 1;
 
-    constructor(address _poolManger) ERC721("WTFSwapPosition", "WTFP") {
+    constructor(address _poolManger) ERC721("MiniswapPosition", "MP") {
         poolManager = IPoolManager(_poolManger);
     }
 

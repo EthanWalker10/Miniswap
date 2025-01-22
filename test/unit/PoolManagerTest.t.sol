@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {TestToken} from "../mock/TestToken.sol";
 import {PoolManager} from "../../src/PoolManager.sol";
 import {IPoolManager, IFactory} from "../../src/interfaces/IPoolManager.sol";
-import {Test, console2, Vm} from "forge-std/Test.sol";
+import {Test, console2} from "forge-std/Test.sol";
 
 
 contract PoolManagerTest is Test {

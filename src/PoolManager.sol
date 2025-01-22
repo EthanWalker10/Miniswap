@@ -60,6 +60,7 @@ contract PoolManager is Factory, IPoolManager {
             "token0 must be less than token1"
         );
 
+        // call Factory's
         poolAddress = this.createPool(params.token0, params.token1, params.tickLower, params.tickUpper, params.fee);
 
         IPool pool = IPool(poolAddress);
