@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {TestToken} from "../mock/TestToken.sol";
 import {PoolManager} from "../../src/PoolManager.sol";
 import {IPoolManager, IFactory} from "../../src/interfaces/IPoolManager.sol";
+import {IPool} from "../../src/interfaces/IPool.sol";
 import {Test, console2} from "forge-std/Test.sol";
 
 
@@ -20,7 +21,9 @@ contract PoolManagerTest is Test {
     IPoolManager.CreateAndInitializeParams public params1;
     IPoolManager.CreateAndInitializeParams public params2;
     IPoolManager.CreateAndInitializeParams public params3;
-
+    IPool pool1;
+    IPool pool2;
+    IPool pool3;
 
 
     function setUp() external {
@@ -84,9 +87,9 @@ contract PoolManagerTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     modifier poolCreated() {
-        address pool1 = poolManager.createAndInitializePoolIfNecessary(params1);
-        address pool2 = poolManager.createAndInitializePoolIfNecessary(params2);
-        address pool3 = poolManager.createAndInitializePoolIfNecessary(params3);
+        pool1 = IPool(poolManager.createAndInitializePoolIfNecessary(params1));
+        pool2 = IPool(poolManager.createAndInitializePoolIfNecessary(params2));
+        pool3 = IPool(poolManager.createAndInitializePoolIfNecessary(params3));
         _;
     }
 
@@ -120,6 +123,12 @@ contract PoolManagerTest is Test {
             assert(this.comparePoolInfoWithParams(poolsInfo[i], multiParams[i]));
         }
 
+    }
+
+    function testPoolInfo() public poolCreated {
+        assertEq(pool1.sqrtPriceX96(), params1.sqrtPriceX96);
+        assertEq(pool1.tickLower(), params1.tickLower);
+        assertEq(pool1.tickUpper(), params1.tickUpper);
     }
 
 

@@ -98,5 +98,14 @@ contract PoolManagerTest is Test {
         positionManager.mint(params1);
     }
 
+    /**
+     * 1. how to calculate the liquidity?
+     * 2. if we need to mint first? 
+     * assert if the liquidity, amount0, amount1 is coordinate to what we predict
+     */
+    function testMintParams() public {
+        
+    }
+
 
 }
