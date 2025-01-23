@@ -15,7 +15,9 @@ contract PoolManagerTest is Test {
     TestToken tkA;
     TestToken tkB;
     TestToken tkC;
-    TestToken tkD;
+    address token0;
+    address token1;
+    address token2;
     uint24 constant FEE = 3000;
     int24 constant TICKLOWER = 84222; // price_low: sqrt(4545) -> tick_i
     int24 constant TICKUPPER = 86129; // price_up: sqrt(5500) -> tick_i
@@ -24,7 +26,6 @@ contract PoolManagerTest is Test {
     IPoolManager.CreateAndInitializeParams public createParams1;
     IPoolManager.CreateAndInitializeParams public createParams2;
     IPoolManager.CreateAndInitializeParams public createParams3;
-    IPoolManager.CreateAndInitializeParams public createParams4;
 
     IPositionManager.MintParams public params1;
 
@@ -41,13 +42,15 @@ contract PoolManagerTest is Test {
         tkA = new TestToken();
         tkB = new TestToken();
         tkC = new TestToken();
-        tkD = new TestToken();
 
+        (token0, token1) = sortTokens(address(tkA), address(tkB));
+        (token0, token2) = sortTokens(token0, address(tkC));
+        (token1, token2) = sortTokens(token1, token2);
 
 
         createParams1 = IPoolManager.CreateAndInitializeParams({
-            token0: address(tkA),
-            token1: address(tkB),
+            token0: token0,
+            token1: token1,
             fee: FEE,
             tickLower: TICKLOWER,
             tickUpper: TICKUPPER,
@@ -55,8 +58,8 @@ contract PoolManagerTest is Test {
         });
 
         createParams2 = IPoolManager.CreateAndInitializeParams({
-            token0: address(tkA),
-            token1: address(tkB),
+            token0: token0,
+            token1: token1,
             fee: FEE,
             tickLower: TICKLOWER+100,
             tickUpper: TICKUPPER+100,
@@ -64,17 +67,8 @@ contract PoolManagerTest is Test {
         });
 
         createParams3 = IPoolManager.CreateAndInitializeParams({
-            token0: address(tkC),
-            token1: address(tkD),
-            fee: FEE,
-            tickLower: TICKLOWER,
-            tickUpper: TICKUPPER,
-            sqrtPriceX96: SQRTPRICEX96
-        });
-
-        createParams4 = IPoolManager.CreateAndInitializeParams({
-            token0: address(tkB),
-            token1: address(tkC),
+            token0: token1,
+            token1: token2,
             fee: FEE,
             tickLower: TICKLOWER,
             tickUpper: TICKUPPER,
@@ -84,11 +78,10 @@ contract PoolManagerTest is Test {
         address pool1 = poolManager.createAndInitializePoolIfNecessary(createParams1);
         address pool2 = poolManager.createAndInitializePoolIfNecessary(createParams2);
         address pool3 = poolManager.createAndInitializePoolIfNecessary(createParams3);
-        address pool4 = poolManager.createAndInitializePoolIfNecessary(createParams4);
 
         params1 = IPositionManager.MintParams({
-            token0: address(tkA),
-            token1: address(tkB),
+            token0: token0,
+            token1: token1,
             index: 0,
             amount0Desired: 1,
             amount1Desired: 5000,
