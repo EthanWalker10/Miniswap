@@ -68,9 +68,7 @@ contract Pool is IPool {
         // Factory 创建 Pool 时会通 new Pool{salt: salt}() 的方式创建 Pool 合约，通过 salt 指定 Pool 的地址，这样其他地方也可以推算出 Pool 的地址
         // 参数通过读取 Factory 合约的 parameters 获取
         // 不通过构造函数传入，因为 CREATE2 会根据 initcode 计算出新地址（new_address = hash(0xFF, sender, salt, bytecode)），带上参数就不能计算出稳定的地址了
-        (factory, token0, token1, tickLower, tickUpper, fee) = IFactory(
-            msg.sender
-        ).parameters();
+        (factory, token0, token1, tickLower, tickUpper, fee) = IFactory(msg.sender).parameters();
     }
 
     function initialize(uint160 sqrtPriceX96_) external override {
@@ -78,8 +76,7 @@ contract Pool is IPool {
         // 通过价格获取 tick，判断 tick 是否在 tickLower 和 tickUpper 之间
         tick = TickMath.getTickAtSqrtPrice(sqrtPriceX96_);
         require(
-            tick >= tickLower && tick < tickUpper,
-            "sqrtPriceX96 should be within the range of [tickLower, tickUpper)"
+            tick >= tickLower && tick < tickUpper, "sqrtPriceX96 should be within the range of [tickLower, tickUpper)"
         );
         // 初始化 Pool 的 sqrtPriceX96
         sqrtPriceX96 = sqrtPriceX96_;
@@ -90,25 +87,18 @@ contract Pool is IPool {
         int128 liquidityDelta;
     }
 
-    /** @title 修改用户的 Position 信息
+    /**
+     * @dev 修改用户的 Position 信息
      * @dev 通过 Storage 引用实现 gas saving
      */
-    function _modifyPosition(
-        ModifyPositionParams memory params
-    ) private returns (int256 amount0, int256 amount1) {
+    function _modifyPosition(ModifyPositionParams memory params) private returns (int256 amount0, int256 amount1) {
         // 通过新增的流动性计算 amount0 和 amount1
         // 参考 UniswapV3 的代码
-        amount0 = SqrtPriceMath.getAmount0Delta(
-            sqrtPriceX96,
-            TickMath.getSqrtPriceAtTick(tickUpper),
-            params.liquidityDelta
-        );
+        amount0 =
+            SqrtPriceMath.getAmount0Delta(sqrtPriceX96, TickMath.getSqrtPriceAtTick(tickUpper), params.liquidityDelta);
 
-        amount1 = SqrtPriceMath.getAmount1Delta(
-            TickMath.getSqrtPriceAtTick(tickLower),
-            sqrtPriceX96,
-            params.liquidityDelta
-        );
+        amount1 =
+            SqrtPriceMath.getAmount1Delta(TickMath.getSqrtPriceAtTick(tickLower), sqrtPriceX96, params.liquidityDelta);
         // gas saving
         // 直接通过 position 引用访问和修改数据，不需要每次都进行 mapping 查找，从而减少了多次存储读取带来的 Gas 开销。
         // 使用 storage 引用时，在本地内存中进行数据的操作。只有在函数返回时才将数据修改写回到存储。这种方式可以在一个地方集中进行数据修改，避免了对存储的多次修改。
@@ -117,16 +107,12 @@ contract Pool is IPool {
         // 提取手续费，计算从上一次提取到当前的手续费
         uint128 tokensOwed0 = uint128(
             FullMath.mulDiv(
-                feeGrowthGlobal0X128 - position.feeGrowthInside0LastX128,
-                position.liquidity,
-                FixedPoint128.Q128
+                feeGrowthGlobal0X128 - position.feeGrowthInside0LastX128, position.liquidity, FixedPoint128.Q128
             )
         );
         uint128 tokensOwed1 = uint128(
             FullMath.mulDiv(
-                feeGrowthGlobal1X128 - position.feeGrowthInside1LastX128,
-                position.liquidity,
-                FixedPoint128.Q128
+                feeGrowthGlobal1X128 - position.feeGrowthInside1LastX128, position.liquidity, FixedPoint128.Q128
             )
         );
 
@@ -138,10 +124,7 @@ contract Pool is IPool {
         }
 
         liquidity = LiquidityMath.addDelta(liquidity, params.liquidityDelta);
-        position.liquidity = LiquidityMath.addDelta(
-            position.liquidity,
-            params.liquidityDelta
-        );
+        position.liquidity = LiquidityMath.addDelta(position.liquidity, params.liquidityDelta);
     }
 
     /**
@@ -151,17 +134,15 @@ contract Pool is IPool {
      */
     function balance0() private view returns (uint256) {
         // staticcall: 只读调用，避免更昂贵的写入操作
-        (bool success, bytes memory data) = token0.staticcall(
-            abi.encodeWithSelector(IERC20.balanceOf.selector, address(this))
-        );
+        (bool success, bytes memory data) =
+            token0.staticcall(abi.encodeWithSelector(IERC20.balanceOf.selector, address(this)));
         require(success && data.length >= 32);
         return abi.decode(data, (uint256));
     }
 
     function balance1() private view returns (uint256) {
-        (bool success, bytes memory data) = token1.staticcall(
-            abi.encodeWithSelector(IERC20.balanceOf.selector, address(this))
-        );
+        (bool success, bytes memory data) =
+            token1.staticcall(abi.encodeWithSelector(IERC20.balanceOf.selector, address(this)));
         require(success && data.length >= 32);
         return abi.decode(data, (uint256));
     }
@@ -169,18 +150,15 @@ contract Pool is IPool {
      * @dev 添加流动性
      * @param amount: 添加的流动性份额，根据 amount 计算出需要的两种代币数量 amount0 和 amount1
      */
-    function mint(
-        address recipient,
-        uint128 amount,
-        bytes calldata data
-    ) external override returns (uint256 amount0, uint256 amount1) {
+
+    function mint(address recipient, uint128 amount, bytes calldata data)
+        external
+        override
+        returns (uint256 amount0, uint256 amount1)
+    {
         require(amount > 0, "Mint amount must be greater than 0");
-        (int256 amount0Int, int256 amount1Int) = _modifyPosition(
-            ModifyPositionParams({
-                owner: recipient,
-                liquidityDelta: int128(amount)
-            })
-        );
+        (int256 amount0Int, int256 amount1Int) =
+            _modifyPosition(ModifyPositionParams({owner: recipient, liquidityDelta: int128(amount)}));
         amount0 = uint256(amount0Int);
         amount1 = uint256(amount1Int);
 
@@ -190,26 +168,24 @@ contract Pool is IPool {
         if (amount1 > 0) balance1Before = balance1();
         IMintCallback(msg.sender).mintCallback(amount0, amount1, data);
 
-        if (amount0 > 0)
+        if (amount0 > 0) {
             require(balance0Before.add(amount0) <= balance0(), "M0");
-        if (amount1 > 0)
+        }
+        if (amount1 > 0) {
             require(balance1Before.add(amount1) <= balance1(), "M1");
+        }
 
         emit Mint(msg.sender, recipient, amount, amount0, amount1);
     }
 
-    function collect(
-        address recipient,
-        uint128 amount0Requested,
-        uint128 amount1Requested
-    ) external override returns (uint128 amount0, uint128 amount1) {
+    function collect(address recipient, uint128 amount0Requested, uint128 amount1Requested)
+        external
+        override
+        returns (uint128 amount0, uint128 amount1)
+    {
         Position storage position = positions[msg.sender];
-        amount0 = amount0Requested > position.tokensOwed0
-            ? position.tokensOwed0
-            : amount0Requested;
-        amount1 = amount1Requested > position.tokensOwed1
-            ? position.tokensOwed1
-            : amount1Requested;
+        amount0 = amount0Requested > position.tokensOwed0 ? position.tokensOwed0 : amount0Requested;
+        amount1 = amount1Requested > position.tokensOwed1 ? position.tokensOwed1 : amount1Requested;
 
         if (amount0 > 0) {
             position.tokensOwed0 -= amount0;
@@ -223,19 +199,16 @@ contract Pool is IPool {
         emit Collect(msg.sender, recipient, amount0, amount1);
     }
 
-    function burn(
-        uint128 amount
-    ) external override returns (uint256 amount0, uint256 amount1) {
+    function burn(uint128 amount) external override returns (uint256 amount0, uint256 amount1) {
         require(amount > 0, "Burn amount must be greater than 0");
-        require(
-            amount <= positions[msg.sender].liquidity,
-            "Burn amount exceeds liquidity"
-        );
+        require(amount <= positions[msg.sender].liquidity, "Burn amount exceeds liquidity");
         // 修改 positions 中的信息
         (int256 amount0Int, int256 amount1Int) = _modifyPosition(
             ModifyPositionParams({
-                owner: msg
-                    .sender /** @dev 这里 msg.sender 应该是 PositionManager 合约的地址? 这样如何区分呢? */,
+                owner: msg.sender,
+                /**
+                 * @dev 这里 msg.sender 应该是 PositionManager 合约的地址? 这样如何区分呢?
+                 */
                 liquidityDelta: -int128(amount) // 负值
             })
         );
@@ -244,10 +217,7 @@ contract Pool is IPool {
         amount1 = uint256(-amount1Int);
 
         if (amount0 > 0 || amount1 > 0) {
-            (
-                positions[msg.sender].tokensOwed0,
-                positions[msg.sender].tokensOwed1
-            ) = (
+            (positions[msg.sender].tokensOwed0, positions[msg.sender].tokensOwed1) = (
                 positions[msg.sender].tokensOwed0 + uint128(amount0),
                 positions[msg.sender].tokensOwed1 + uint128(amount1)
             );
@@ -291,10 +261,8 @@ contract Pool is IPool {
          */
         require(
             zeroForOne
-                ? sqrtPriceLimitX96 < sqrtPriceX96 &&
-                    sqrtPriceLimitX96 > TickMath.MIN_SQRT_PRICE
-                : sqrtPriceLimitX96 > sqrtPriceX96 &&
-                    sqrtPriceLimitX96 < TickMath.MAX_SQRT_PRICE,
+                ? sqrtPriceLimitX96 < sqrtPriceX96 && sqrtPriceLimitX96 > TickMath.MIN_SQRT_PRICE
+                : sqrtPriceLimitX96 > sqrtPriceX96 && sqrtPriceLimitX96 < TickMath.MAX_SQRT_PRICE,
             "SPL"
         );
 
@@ -304,9 +272,7 @@ contract Pool is IPool {
             amountSpecifiedRemaining: amountSpecified,
             amountCalculated: 0,
             sqrtPriceX96: sqrtPriceX96,
-            feeGrowthGlobalX128: zeroForOne
-                ? feeGrowthGlobal0X128
-                : feeGrowthGlobal1X128,
+            feeGrowthGlobalX128: zeroForOne ? feeGrowthGlobal0X128 : feeGrowthGlobal1X128,
             amountIn: 0,
             amountOut: 0,
             feeAmount: 0
@@ -314,30 +280,19 @@ contract Pool is IPool {
 
         uint160 sqrtPriceX96Lower = TickMath.getSqrtPriceAtTick(tickLower);
         uint160 sqrtPriceX96Upper = TickMath.getSqrtPriceAtTick(tickUpper);
-        uint160 sqrtPriceX96PoolLimit = zeroForOne
-            ? sqrtPriceX96Lower
-            : sqrtPriceX96Upper;
+        uint160 sqrtPriceX96PoolLimit = zeroForOne ? sqrtPriceX96Lower : sqrtPriceX96Upper;
 
         /**
          * @dev 传入当前价格、限制价格、流动性数量、交易量和手续费
          * @dev 返回交易后新的价格, 可以交易的数量，以及手续费
          */
-        (
-            state.sqrtPriceX96,
-            state.amountIn,
-            state.amountOut,
-            state.feeAmount
-        ) = SwapMath.computeSwapStep(
+        (state.sqrtPriceX96, state.amountIn, state.amountOut, state.feeAmount) = SwapMath.computeSwapStep(
             sqrtPriceX96,
             /**
              * token0 -> token1: 看pool价格限制是否小于用户价格限制, 如果是的话, 就选用户价格限制, 否则选pool价格限制
              * token1 -> token0: 看pool价格限制是否大于用户价格限制, 如果是的话, 就选用户价格限制, 否则选pool价格限制
              */
-            (
-                zeroForOne
-                    ? sqrtPriceX96PoolLimit < sqrtPriceLimitX96
-                    : sqrtPriceX96PoolLimit > sqrtPriceLimitX96
-            )
+            (zeroForOne ? sqrtPriceX96PoolLimit < sqrtPriceLimitX96 : sqrtPriceX96PoolLimit > sqrtPriceLimitX96)
                 ? sqrtPriceLimitX96
                 : sqrtPriceX96PoolLimit,
             liquidity,
@@ -348,11 +303,7 @@ contract Pool is IPool {
         sqrtPriceX96 = state.sqrtPriceX96;
         tick = TickMath.getTickAtSqrtPrice(state.sqrtPriceX96);
 
-        state.feeGrowthGlobalX128 += FullMath.mulDiv(
-            state.feeAmount,
-            FixedPoint128.Q128,
-            liquidity
-        );
+        state.feeGrowthGlobalX128 += FullMath.mulDiv(state.feeAmount, FixedPoint128.Q128, liquidity);
 
         if (zeroForOne) {
             feeGrowthGlobal0X128 = state.feeGrowthGlobalX128;
@@ -365,16 +316,11 @@ contract Pool is IPool {
          */
         if (exactInput) {
             // 指定了精确的 token0 输入
-            state.amountSpecifiedRemaining -= (state.amountIn + state.feeAmount)
-                .toInt256();
-            state.amountCalculated = state.amountCalculated.sub(
-                state.amountOut.toInt256()
-            );
+            state.amountSpecifiedRemaining -= (state.amountIn + state.feeAmount).toInt256();
+            state.amountCalculated = state.amountCalculated.sub(state.amountOut.toInt256());
         } else {
             state.amountSpecifiedRemaining += state.amountOut.toInt256();
-            state.amountCalculated = state.amountCalculated.add(
-                (state.amountIn + state.feeAmount).toInt256()
-            );
+            state.amountCalculated = state.amountCalculated.add((state.amountIn + state.feeAmount).toInt256());
         }
 
         /**
@@ -385,14 +331,8 @@ contract Pool is IPool {
          * @dev 下面的注释以 == 成立时第一种情况来推算
          */
         (amount0, amount1) = zeroForOne == exactInput
-            ? (
-                amountSpecified - state.amountSpecifiedRemaining,
-                state.amountCalculated
-            )
-            : (
-                state.amountCalculated,
-                amountSpecified - state.amountSpecifiedRemaining
-            );
+            ? (amountSpecified - state.amountSpecifiedRemaining, state.amountCalculated)
+            : (state.amountCalculated, amountSpecified - state.amountSpecifiedRemaining);
 
         if (zeroForOne) {
             // callback 中需要给 Pool 转入 token
@@ -401,12 +341,9 @@ contract Pool is IPool {
             require(balance0Before.add(uint256(amount0)) <= balance0(), "IIA");
 
             // 转 Token 给用户
-            if (amount1 < 0)
-                TransferHelper.safeTransfer(
-                    token1,
-                    recipient,
-                    uint256(-amount1)
-                );
+            if (amount1 < 0) {
+                TransferHelper.safeTransfer(token1, recipient, uint256(-amount1));
+            }
         } else {
             // callback 中需要给 Pool 转入 token
             uint256 balance1Before = balance1();
@@ -414,45 +351,32 @@ contract Pool is IPool {
             require(balance1Before.add(uint256(amount1)) <= balance1(), "IIA");
 
             // 转 Token 给用户
-            if (amount0 < 0)
-                TransferHelper.safeTransfer(
-                    token0,
-                    recipient,
-                    uint256(-amount0)
-                );
+            if (amount0 < 0) {
+                TransferHelper.safeTransfer(token0, recipient, uint256(-amount0));
+            }
         }
 
-        emit Swap(
-            msg.sender,
-            recipient,
-            amount0,
-            amount1,
-            sqrtPriceX96,
-            liquidity,
-            tick
+        emit Swap(msg.sender, recipient, amount0, amount1, sqrtPriceX96, liquidity, tick);
+    }
+
+    function getPosition(address owner)
+        external
+        view
+        override
+        returns (
+            uint128 _liquidity,
+            uint256 feeGrowthInside0LastX128,
+            uint256 feeGrowthInside1LastX128,
+            uint128 tokensOwed0,
+            uint128 tokensOwed1
+        )
+    {
+        return (
+            positions[owner].liquidity,
+            positions[owner].feeGrowthInside0LastX128,
+            positions[owner].feeGrowthInside1LastX128,
+            positions[owner].tokensOwed0,
+            positions[owner].tokensOwed1
         );
     }
-}
-
-function getPosition(
-    address owner
-)
-    external
-    view
-    override
-    returns (
-        uint128 _liquidity,
-        uint256 feeGrowthInside0LastX128,
-        uint256 feeGrowthInside1LastX128,
-        uint128 tokensOwed0,
-        uint128 tokensOwed1
-    )
-{
-    return (
-        positions[owner].liquidity,
-        positions[owner].feeGrowthInside0LastX128,
-        positions[owner].feeGrowthInside1LastX128,
-        positions[owner].tokensOwed0,
-        positions[owner].tokensOwed1
-    );
 }
