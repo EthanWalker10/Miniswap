@@ -10,7 +10,7 @@ interface IPoolManager is IFactory {
         address token1;
         uint32 index;
         uint24 fee;
-        uint8 feeProtocol;
+        uint8 feeProtocol; 
         int24 tickLower;
         int24 tickUpper;
         int24 tick;

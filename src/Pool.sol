@@ -301,8 +301,8 @@ contract Pool is IPool {
         bool exactInput = amountSpecified > 0;
 
         SwapState memory state = SwapState({
-            amountSpecifiedRemaining: amountSpecified, 
-            amountCalculated: 0, 
+            amountSpecifiedRemaining: amountSpecified,
+            amountCalculated: 0,
             sqrtPriceX96: sqrtPriceX96,
             feeGrowthGlobalX128: zeroForOne
                 ? feeGrowthGlobal0X128
@@ -327,23 +327,23 @@ contract Pool is IPool {
             state.amountIn,
             state.amountOut,
             state.feeAmount
-        ) = SwapMath.computeSwapStep( 
-                sqrtPriceX96,
-                /**
-                 * token0 -> token1: 看pool价格限制是否小于用户价格限制, 如果是的话, 就选用户价格限制, 否则选pool价格限制
-                 * token1 -> token0: 看pool价格限制是否大于用户价格限制, 如果是的话, 就选用户价格限制, 否则选pool价格限制
-                 */
-                (
-                    zeroForOne
-                        ? sqrtPriceX96PoolLimit < sqrtPriceLimitX96
-                        : sqrtPriceX96PoolLimit > sqrtPriceLimitX96
-                )
-                    ? sqrtPriceLimitX96
-                    : sqrtPriceX96PoolLimit,
-                liquidity,
-                amountSpecified,
-                fee
-            );
+        ) = SwapMath.computeSwapStep(
+            sqrtPriceX96,
+            /**
+             * token0 -> token1: 看pool价格限制是否小于用户价格限制, 如果是的话, 就选用户价格限制, 否则选pool价格限制
+             * token1 -> token0: 看pool价格限制是否大于用户价格限制, 如果是的话, 就选用户价格限制, 否则选pool价格限制
+             */
+            (
+                zeroForOne
+                    ? sqrtPriceX96PoolLimit < sqrtPriceLimitX96
+                    : sqrtPriceX96PoolLimit > sqrtPriceLimitX96
+            )
+                ? sqrtPriceLimitX96
+                : sqrtPriceX96PoolLimit,
+            liquidity,
+            amountSpecified,
+            fee
+        );
 
         sqrtPriceX96 = state.sqrtPriceX96;
         tick = TickMath.getTickAtSqrtPrice(state.sqrtPriceX96);
@@ -363,30 +363,31 @@ contract Pool is IPool {
         /**
          * 下面的注释以 token0 -> token1 为例子推演
          */
-        if (exactInput) { // 指定了精确的 token0 输入
-            state.amountSpecifiedRemaining -= (state.amountIn + state.feeAmount) 
+        if (exactInput) {
+            // 指定了精确的 token0 输入
+            state.amountSpecifiedRemaining -= (state.amountIn + state.feeAmount)
                 .toInt256();
-            state.amountCalculated = state.amountCalculated.sub( 
-                state.amountOut.toInt256() 
+            state.amountCalculated = state.amountCalculated.sub(
+                state.amountOut.toInt256()
             );
-        } else { 
-            state.amountSpecifiedRemaining += state.amountOut.toInt256(); 
-            state.amountCalculated = state.amountCalculated.add( 
+        } else {
+            state.amountSpecifiedRemaining += state.amountOut.toInt256();
+            state.amountCalculated = state.amountCalculated.add(
                 (state.amountIn + state.feeAmount).toInt256()
             );
         }
 
         /**
          * @dev 若 == 成立, 有两种情况:
-         * @dev 1. token0 -> token1 && 精确输入;  2. token1 -> token0 && 精确输出 
+         * @dev 1. token0 -> token1 && 精确输入;  2. token1 -> token0 && 精确输出
          * @dev 若 == 不成立, 也有两种情况:
          * @dev 1. token0 -> token1 && 精确输出;  2. token1 -> token0 && 精确输入
          * @dev 下面的注释以 == 成立时第一种情况来推算
          */
-        (amount0, amount1) = zeroForOne == exactInput 
+        (amount0, amount1) = zeroForOne == exactInput
             ? (
-                amountSpecified - state.amountSpecifiedRemaining, 
-                state.amountCalculated 
+                amountSpecified - state.amountSpecifiedRemaining,
+                state.amountCalculated
             )
             : (
                 state.amountCalculated,
