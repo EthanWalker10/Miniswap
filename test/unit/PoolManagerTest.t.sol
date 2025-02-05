@@ -131,5 +131,4 @@ contract PoolManagerTest is Test {
         assertEq(pool1.tickUpper(), params1.tickUpper);
     }
 
-
 }

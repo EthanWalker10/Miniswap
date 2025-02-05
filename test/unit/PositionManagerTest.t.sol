@@ -30,6 +30,10 @@ contract PoolManagerTest is Test {
     IPositionManager.MintParams public params1;
 
     address public LP = makeAddr("lp");
+    uint256 constant BALANCE0 = 1;
+    uint256 constant BALANCE1 = 5000;
+    uint256 constant BALANCE2 = 5000;
+
 
     function sortTokens(address a, address b) public pure returns (address, address) {
         return a < b ? (a, b) : (b, a);
@@ -47,6 +51,16 @@ contract PoolManagerTest is Test {
         (token0, token2) = sortTokens(token0, address(tkC));
         (token1, token2) = sortTokens(token1, token2);
 
+        if (block.chainid == 31337) {
+            TestToken(token0).mint(LP, BALANCE0);
+            TestToken(token1).mint(LP, BALANCE1);
+            TestToken(token2).mint(LP, BALANCE2);
+        }
+        vm.startPrank(LP);
+        TestToken(token0).approve(address(positionManager), BALANCE0);
+        TestToken(token1).approve(address(positionManager), BALANCE1);
+        TestToken(token2).approve(address(positionManager), BALANCE2);
+        vm.stopPrank();
 
         createParams1 = IPoolManager.CreateAndInitializeParams({
             token0: token0,
@@ -83,12 +97,11 @@ contract PoolManagerTest is Test {
             token0: token0,
             token1: token1,
             index: 0,
-            amount0Desired: 1,
-            amount1Desired: 5000,
+            amount0Desired: 2,
+            amount1Desired: 10000,
             recipient: LP,
             deadline: block.timestamp + 600
         });
-
 
     }
 
@@ -104,6 +117,11 @@ contract PoolManagerTest is Test {
      * assert if the liquidity, amount0, amount1 is coordinate to what we predict
      */
     function testMintParams() public {
+        vm.prank(LP);
+        (uint256 positionId, uint128 liquidity, uint256 amount0, uint256 amount1) = positionManager.mint(params1);
+        console2.log(positionId, liquidity, amount0, amount1);
+
+        // compare the result with that we predict(mathmatic calculating)
         
     }
 
